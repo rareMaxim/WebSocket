@@ -12,10 +12,11 @@ procedure test;
 var
   lSocket: TWebSocket;
 begin
-  lSocket := TWebSocket.Create('ws://javascript.info');
+  lSocket := TWebSocket.Create('ws://vnc.interpay.com.ua:22004/');
   try
-
+    lSocket.Connect;
   finally
+    Readln;
     lSocket.Free;
   end;
 end;
@@ -23,6 +24,7 @@ end;
 begin
   try
     { TODO -oUser -cConsole Main : Insert code here }
+    test;
   except
     on E: Exception do
       Writeln(E.ClassName, ': ', E.Message);
