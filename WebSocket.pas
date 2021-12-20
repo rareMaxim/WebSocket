@@ -14,28 +14,32 @@ type
     FSecuredKey: string;
     FSocket: TSocket;
   protected
-    procedure DoOnTcpNativeConnected(const ASyncResult: IAsyncResult);
-    procedure DoOnTcpNativeSend(const ASyncResult: IAsyncResult);
     procedure EndSendHandshake(const ASyncResult: IAsyncResult);
+    procedure DoOnTcpNativeConnected(const ASyncResult: IAsyncResult);
+    procedure DoOnTcpNativeEndSendHandshakeData(const ASyncResult: IAsyncResult);
+    procedure DoOnTcpNativeEndReceiveSendHandshake(const ASyncResult: IAsyncResult);
+    procedure DoOnTcpNativeBeginReceiveFrameData;
+    procedure DoOnTcpNativeEndReceiveFrameData(const ASyncResult: IAsyncResult);
   public
     procedure SendHandshake;
     procedure Connect;
     constructor Create(const AUrl: string);
     destructor Destroy; override;
-    class procedure Log(const AMsg: string);
   end;
 
 implementation
 
 uses
-
-  System.SysUtils;
+  WebSocket.Tools,
+  WebSocket.Types.Frame,
+  System.SysUtils,
+  System.Classes;
 { TWebSocket }
 
 procedure TWebSocket.Connect;
 begin
   FSocket.BeginConnect(DoOnTcpNativeConnected, FUri.Host, '', '', FUri.Port);
-  SendHandshake;
+
 end;
 
 constructor TWebSocket.Create(const AUrl: string);
@@ -50,36 +54,78 @@ begin
   inherited;
 end;
 
-procedure TWebSocket.DoOnTcpNativeConnected(const ASyncResult: IAsyncResult);
+procedure TWebSocket.DoOnTcpNativeEndReceiveFrameData(const ASyncResult: IAsyncResult);
+var
+  lResult: TBytes;
+  lFrame: TwsFrame;
 begin
-  Log('TWebSocket.DoOnTcpNativeConnected');
+  TwsTools.Log('procedure TWebSocket.DoOnTcpNativeEndReceiveFrameData(const ASyncResult: IAsyncResult);');
+  Writeln(FSocket.Handle);
+  lResult := FSocket.EndReceiveBytes(ASyncResult);
+  lFrame := TwsFrame.Parse(lResult);
+  DoOnTcpNativeBeginReceiveFrameData;
 end;
 
-procedure TWebSocket.DoOnTcpNativeSend(const ASyncResult: IAsyncResult);
+procedure TWebSocket.DoOnTcpNativeEndReceiveSendHandshake(const ASyncResult: IAsyncResult);
+var
+  lResult: TBytes;
+  lStr: string;
+  lHeaders: TStringList;
 begin
-  Log('TWebSocket.DoOnTcpNativeSend');
+  TwsTools.Log('procedure TWebSocket.DoOnTcpNativeEndReceiveSendHandshake(const ASyncResult: IAsyncResult);');
+  Writeln(FSocket.Handle);
+  lResult := FSocket.EndReceiveBytes(ASyncResult);
+  lStr := TEncoding.UTF8.GetString(lResult);
+
+  lHeaders := TStringList.Create();
+  try
+    lHeaders.Text := lStr;
+    Writeln(lHeaders.Text);
+
+  finally
+    lHeaders.Free;
+  end;
+  DoOnTcpNativeBeginReceiveFrameData;
+end;
+
+procedure TWebSocket.DoOnTcpNativeEndSendHandshakeData(const ASyncResult: IAsyncResult);
+begin
+  TwsTools.Log('procedure TWebSocket.DoOnTcpNativeEndSendHandshakeData(const ASyncResult: IAsyncResult);');
+  Writeln(FSocket.Handle);
+  FSocket.EndSend(ASyncResult);
+  TwsTools.Log('EndSend');
+  Writeln(FSocket.Handle);
+  FSocket.BeginReceive(DoOnTcpNativeEndReceiveSendHandshake, []);
+end;
+
+procedure TWebSocket.DoOnTcpNativeBeginReceiveFrameData;
+begin
+  FSocket.BeginReceive(DoOnTcpNativeEndReceiveFrameData, [])
+end;
+
+procedure TWebSocket.DoOnTcpNativeConnected(const ASyncResult: IAsyncResult);
+begin
+
+  TwsTools.Log('procedure TWebSocket.DoOnTcpNativeConnected(const ASyncResult: IAsyncResult);');
+  Writeln(FSocket.Handle);
+  SendHandshake;
 end;
 
 procedure TWebSocket.EndSendHandshake(const ASyncResult: IAsyncResult);
 var
   lResp: string;
 begin
+  TwsTools.Log('procedure TWebSocket.EndSendHandshake(const ASyncResult: IAsyncResult);');
+  Writeln(FSocket.Handle);
   lResp := FSocket.EndReceiveString(ASyncResult);
-  Log('procedure TWebSocket.EndSendHandshake(const ASyncResult: IAsyncResult);');
-end;
-
-class procedure TWebSocket.Log(const AMsg: string);
-begin
-  Writeln(TimeToStr(now) + ' ' + AMsg);
 end;
 
 procedure TWebSocket.SendHandshake;
 var
   str: string;
-  key: string;
 begin
 
-  Log('procedure TWebSocket.SendHandshake;');
+  TwsTools.Log('procedure TWebSocket.SendHandshake;');
 
   FSecuredKey := 'dGhlIHNhbXBsZSBub25jZQ==';
 
@@ -94,21 +140,7 @@ begin
   str := str + 'Sec-WebSocket-Protocol: chat, superchat' + sLineBreak;
 
   str := str + 'Sec-WebSocket-Version: 13' + sLineBreak;
-  FSocket.BeginSend(str + sLineBreak,
-    procedure(const ABeginSendSyncResult: IAsyncResult)
-    var
-      lResp: Integer;
-    begin
-      lResp := FSocket.EndSend(ABeginSendSyncResult);
-      FSocket.BeginReceive(
-        procedure(const ABeginReceiveSyncResult: IAsyncResult)
-        var
-          lResp: string;
-        begin
-          lResp := FSocket.EndReceiveString(ABeginReceiveSyncResult);
-          Log('procedure TWebSocket.EndSendHandshake(const ASyncResult: IAsyncResult);');
-        end);
-    end);
+  FSocket.BeginSend(str + sLineBreak, DoOnTcpNativeEndSendHandshakeData);
 
 end;
 

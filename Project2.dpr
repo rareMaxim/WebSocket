@@ -6,7 +6,8 @@ program Project2;
 uses
   System.SysUtils,
   WebSocket in 'WebSocket.pas',
-  WebSocket.Types.Frame in 'WebSocket.Types.Frame.pas';
+  WebSocket.Types.Frame in 'WebSocket.Types.Frame.pas',
+  WebSocket.Tools in 'WebSocket.Tools.pas';
 
 procedure test;
 var
