@@ -7,7 +7,9 @@ uses
   System.SysUtils,
   WebSocket in 'WebSocket.pas',
   WebSocket.Types.Frame in 'WebSocket.Types.Frame.pas',
-  WebSocket.Tools in 'WebSocket.Tools.pas';
+  WebSocket.Tools in 'WebSocket.Tools.pas',
+  WebSocket.Types.Message in 'WebSocket.Types.Message.pas',
+  WebSocket.Types in 'WebSocket.Types.pas';
 
 procedure test;
 var
@@ -18,6 +20,11 @@ begin
     lSocket.OnOpenCallback := procedure
       begin
         Writeln('Соединение установлено.');
+      end;
+    lSocket.OnMessageCallback := procedure(AMsg: TwsMessage)
+      begin
+        if AMsg.IsText then
+          Writeln(AMsg.Text);
       end;
     lSocket.Connect;
   finally

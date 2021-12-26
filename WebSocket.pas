@@ -3,6 +3,7 @@
 interface
 
 uses
+  WebSocket.Types,
   System.Net.Socket,
   System.Net.URLClient,
   System.Types,
@@ -15,27 +16,37 @@ type
     FSecuredKey: string;
     FSocket: TSocket;
     FOnOpenCallback: TProc;
+    FOnMessageCallback: TProc<TwsMessage>;
   protected
-    procedure DoOnOpenCallback;
-    procedure EndSendHandshake(const ASyncResult: IAsyncResult);
+{$REGION 'Connect'}
     procedure DoOnTcpNativeConnected(const ASyncResult: IAsyncResult);
+    procedure DoOnOpenCallback;
+{$ENDREGION}
+{$REGION 'Handshake'}
+    procedure SendHandshake;
+    procedure EndSendHandshake(const ASyncResult: IAsyncResult);
     procedure DoOnTcpNativeEndSendHandshakeData(const ASyncResult: IAsyncResult);
     procedure DoOnTcpNativeEndReceiveSendHandshake(const ASyncResult: IAsyncResult);
+    procedure DoCheckHeaderAnswer(const AHeaderFromServer: string);
+{$ENDREGION}
+{$REGION 'Reading frames'}
     procedure DoOnTcpNativeBeginReceiveFrameData;
     procedure DoOnTcpNativeEndReceiveFrameData(const ASyncResult: IAsyncResult);
+    procedure DoOnMessageCallback(AMsg: TwsMessage);
+    procedure DoOnFrame(AFrame: TwsFrame);
+{$ENDREGION}
   public
-    procedure SendHandshake;
     procedure Connect;
     constructor Create(const AUrl: string);
     destructor Destroy; override;
     property OnOpenCallback: TProc read FOnOpenCallback write FOnOpenCallback;
+    property OnMessageCallback: TProc<TwsMessage> read FOnMessageCallback write FOnMessageCallback;
   end;
 
 implementation
 
 uses
   WebSocket.Tools,
-  WebSocket.Types.Frame,
   System.Classes;
 { TWebSocket }
 
@@ -56,6 +67,21 @@ begin
   inherited;
 end;
 
+procedure TWebSocket.DoCheckHeaderAnswer(const AHeaderFromServer: string);
+var
+  lHeaders: TStringList;
+begin
+  lHeaders := TStringList.Create();
+  try
+    { TODO -oOwner -cGeneral : Проверка ответа от сервера }
+    DoOnOpenCallback;
+    lHeaders.Text := AHeaderFromServer;
+    Writeln(lHeaders.Text);
+  finally
+    lHeaders.Free;
+  end;
+end;
+
 procedure TWebSocket.DoOnTcpNativeEndReceiveFrameData(const ASyncResult: IAsyncResult);
 var
   lResult: TBytes;
@@ -66,8 +92,7 @@ begin
   lResult := FSocket.EndReceiveBytes(ASyncResult);
   lFrame := TwsFrame.Create(lResult);
   try
-    TwsTools.Log(TwsFrame.Print(lFrame));
-    Writeln(lFrame.ToText);
+    DoOnFrame(lFrame);
     DoOnTcpNativeBeginReceiveFrameData;
   finally
     lFrame.Free;
@@ -78,22 +103,12 @@ procedure TWebSocket.DoOnTcpNativeEndReceiveSendHandshake(const ASyncResult: IAs
 var
   lResult: TBytes;
   lStr: string;
-  lHeaders: TStringList;
 begin
   TwsTools.Log('procedure TWebSocket.DoOnTcpNativeEndReceiveSendHandshake(const ASyncResult: IAsyncResult);');
   Writeln(FSocket.Handle);
   lResult := FSocket.EndReceiveBytes(ASyncResult);
-  lStr := TEncoding.UTF8.GetString(lResult);
-
-  lHeaders := TStringList.Create();
-  try
-    { TODO -oOwner -cGeneral : Проверка ответа от сервера }
-    DoOnOpenCallback;
-    lHeaders.Text := lStr;
-    Writeln(lHeaders.Text);
-  finally
-    lHeaders.Free;
-  end;
+  lStr := TEncoding.Default.GetString(lResult);
+  DoCheckHeaderAnswer(lStr);
   DoOnTcpNativeBeginReceiveFrameData;
 end;
 
@@ -105,6 +120,26 @@ begin
   TwsTools.Log('EndSend');
   Writeln(FSocket.Handle);
   FSocket.BeginReceive(DoOnTcpNativeEndReceiveSendHandshake, []);
+end;
+
+procedure TWebSocket.DoOnFrame(AFrame: TwsFrame);
+var
+  lMsg: TwsMessage;
+begin
+  TwsTools.Log(TwsFrame.Print(AFrame));
+  Writeln(AFrame.ToText);
+  lMsg := TwsMessage.Create(AFrame);
+  try
+    DoOnMessageCallback(lMsg);
+  finally
+    lMsg.Free;
+  end;
+end;
+
+procedure TWebSocket.DoOnMessageCallback(AMsg: TwsMessage);
+begin
+  if Assigned(OnMessageCallback) then
+    OnMessageCallback(AMsg);
 end;
 
 procedure TWebSocket.DoOnOpenCallback;

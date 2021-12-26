@@ -47,14 +47,10 @@ type
     FMaskingKey: TBytes;
     FPayload: TBytes;
   protected
-
     class procedure FillFrameByHeader(AByteStream: TBytesStream; var AOutFrame: TwsFrame);
-
   public
     class function Print(AFrame: TwsFrame): string;
-    constructor Create; overload; virtual;
     constructor Create(ARawBytes: TBytes); overload; virtual;
-    constructor CreatePongFrame;
     function ToText: string;
     property Fin: TwsFin read FFin write FFin;
     property Rsv1: TwsRsv read FRsv1 write FRsv1;
@@ -65,10 +61,6 @@ type
     property PayloadLength: Integer read FPayloadLength write FPayloadLength;
     property MaskingKey: TBytes read FMaskingKey write FMaskingKey;
     property Payload: TBytes read FPayload write FPayload;
-  end;
-
-  TwsFrameText = class(TwsFrame)
-
   end;
 
 implementation
@@ -85,16 +77,6 @@ begin
   TwsTools.PrintBytes(ARawBytes);
   FByteStream := TBytesStream.Create(ARawBytes);
   TwsFrame.FillFrameByHeader(FByteStream, Self);
-end;
-
-constructor TwsFrame.Create;
-begin
-  FFin := TwsFin.Final;
-end;
-
-constructor TwsFrame.CreatePongFrame;
-begin
-
 end;
 
 class procedure TwsFrame.FillFrameByHeader(AByteStream: TBytesStream; var AOutFrame: TwsFrame);
