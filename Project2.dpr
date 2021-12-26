@@ -13,7 +13,7 @@ procedure test;
 var
   lSocket: TWebSocket;
 begin
-  lSocket := TWebSocket.Create('ws://vnc.interpay.com.ua:22004/');
+  lSocket := TWebSocket.Create('ws://ws.ifelse.io:80');
   try
     lSocket.Connect;
   finally

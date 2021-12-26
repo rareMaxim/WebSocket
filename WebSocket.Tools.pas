@@ -20,10 +20,10 @@ uses
 
 class function TwsTools.BytesToString(ABytes: TArray<Byte>): string;
 var
-  I: Integer;
+  lStrArr: TArray<string>;
 begin
-  for I := Low(ABytes) to High(ABytes) do
-    Result := Result + ABytes[I].ToString;
+  lStrArr := BytesToStrings(ABytes);
+  Result := string.Join(', ', lStrArr);
 end;
 
 class function TwsTools.BytesToStrings(ABytes: TArray<Byte>): TArray<string>;
