@@ -6,6 +6,7 @@ type
   TwsTools = class
   public
     class function BytesToStrings(ABytes: TArray<Byte>): TArray<string>; static;
+    class function BytesToString(ABytes: TArray<Byte>): string; static;
     class procedure PrintBytes(ABytes: TArray<Byte>);
     class procedure Log(const AMsg: string);
   end;
@@ -16,6 +17,14 @@ uses
   System.SysUtils;
 
 { TwsTools }
+
+class function TwsTools.BytesToString(ABytes: TArray<Byte>): string;
+var
+  I: Integer;
+begin
+  for I := Low(ABytes) to High(ABytes) do
+    Result := Result + ABytes[I].ToString;
+end;
 
 class function TwsTools.BytesToStrings(ABytes: TArray<Byte>): TArray<string>;
 var

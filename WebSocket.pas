@@ -62,8 +62,13 @@ begin
   TwsTools.Log('procedure TWebSocket.DoOnTcpNativeEndReceiveFrameData(const ASyncResult: IAsyncResult);');
   Writeln(FSocket.Handle);
   lResult := FSocket.EndReceiveBytes(ASyncResult);
-  lFrame := TwsFrame.Parse(lResult);
-  DoOnTcpNativeBeginReceiveFrameData;
+  lFrame := TwsFrame.Create(lResult);
+  try
+    TwsTools.Log(TwsFrame.Print(lFrame));
+    DoOnTcpNativeBeginReceiveFrameData;
+  finally
+    lFrame.Free;
+  end;
 end;
 
 procedure TWebSocket.DoOnTcpNativeEndReceiveSendHandshake(const ASyncResult: IAsyncResult);
@@ -81,7 +86,6 @@ begin
   try
     lHeaders.Text := lStr;
     Writeln(lHeaders.Text);
-
   finally
     lHeaders.Free;
   end;
