@@ -55,6 +55,7 @@ type
     constructor Create; overload; virtual;
     constructor Create(ARawBytes: TBytes); overload; virtual;
     constructor CreatePongFrame;
+    function ToText: string;
     property Fin: TwsFin read FFin write FFin;
     property Rsv1: TwsRsv read FRsv1 write FRsv1;
     property Rsv2: TwsRsv read FRsv2 write FRsv2;
@@ -64,6 +65,10 @@ type
     property PayloadLength: Integer read FPayloadLength write FPayloadLength;
     property MaskingKey: TBytes read FMaskingKey write FMaskingKey;
     property Payload: TBytes read FPayload write FPayload;
+  end;
+
+  TwsFrameText = class(TwsFrame)
+
   end;
 
 implementation
@@ -182,6 +187,11 @@ begin;
     TwsTools.BytesToString(AFrame.MaskingKey), // Masking Key
     TwsTools.BytesToString(AFrame.FPayload) // Payload Data
     ]);
+end;
+
+function TwsFrame.ToText: string;
+begin
+  Result := TEncoding.UTF8.GetString(FPayload);
 end;
 
 end.

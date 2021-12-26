@@ -5,7 +5,8 @@ interface
 uses
   System.Net.Socket,
   System.Net.URLClient,
-  System.Types;
+  System.Types,
+  System.SysUtils;
 
 type
   TWebSocket = class
@@ -13,7 +14,9 @@ type
     FUri: TURI;
     FSecuredKey: string;
     FSocket: TSocket;
+    FOnOpenCallback: TProc;
   protected
+    procedure DoOnOpenCallback;
     procedure EndSendHandshake(const ASyncResult: IAsyncResult);
     procedure DoOnTcpNativeConnected(const ASyncResult: IAsyncResult);
     procedure DoOnTcpNativeEndSendHandshakeData(const ASyncResult: IAsyncResult);
@@ -25,6 +28,7 @@ type
     procedure Connect;
     constructor Create(const AUrl: string);
     destructor Destroy; override;
+    property OnOpenCallback: TProc read FOnOpenCallback write FOnOpenCallback;
   end;
 
 implementation
@@ -32,14 +36,12 @@ implementation
 uses
   WebSocket.Tools,
   WebSocket.Types.Frame,
-  System.SysUtils,
   System.Classes;
 { TWebSocket }
 
 procedure TWebSocket.Connect;
 begin
   FSocket.BeginConnect(DoOnTcpNativeConnected, FUri.Host, '', '', FUri.Port);
-
 end;
 
 constructor TWebSocket.Create(const AUrl: string);
@@ -65,6 +67,7 @@ begin
   lFrame := TwsFrame.Create(lResult);
   try
     TwsTools.Log(TwsFrame.Print(lFrame));
+    Writeln(lFrame.ToText);
     DoOnTcpNativeBeginReceiveFrameData;
   finally
     lFrame.Free;
@@ -84,6 +87,8 @@ begin
 
   lHeaders := TStringList.Create();
   try
+    { TODO -oOwner -cGeneral : Проверка ответа от сервера }
+    DoOnOpenCallback;
     lHeaders.Text := lStr;
     Writeln(lHeaders.Text);
   finally
@@ -102,6 +107,12 @@ begin
   FSocket.BeginReceive(DoOnTcpNativeEndReceiveSendHandshake, []);
 end;
 
+procedure TWebSocket.DoOnOpenCallback;
+begin
+  if Assigned(OnOpenCallback) then
+    OnOpenCallback();
+end;
+
 procedure TWebSocket.DoOnTcpNativeBeginReceiveFrameData;
 begin
   FSocket.BeginReceive(DoOnTcpNativeEndReceiveFrameData, [])
@@ -109,7 +120,6 @@ end;
 
 procedure TWebSocket.DoOnTcpNativeConnected(const ASyncResult: IAsyncResult);
 begin
-
   TwsTools.Log('procedure TWebSocket.DoOnTcpNativeConnected(const ASyncResult: IAsyncResult);');
   Writeln(FSocket.Handle);
   SendHandshake;
@@ -128,11 +138,8 @@ procedure TWebSocket.SendHandshake;
 var
   str: string;
 begin
-
   TwsTools.Log('procedure TWebSocket.SendHandshake;');
-
   FSecuredKey := 'dGhlIHNhbXBsZSBub25jZQ==';
-
   Randomize;
   str := 'GET ' + FUri.ToString + ' HTTP/1.1' + sLineBreak;
   str := str + 'Host: ' + FUri.Host + sLineBreak;
@@ -140,12 +147,9 @@ begin
   str := str + 'Connection: Upgrade' + sLineBreak;
   str := str + 'Sec-WebSocket-Key: ' + FSecuredKey + sLineBreak;
   str := str + 'Origin: ' + 'https://github.com/ms301/WebSocket' + sLineBreak;
-
   str := str + 'Sec-WebSocket-Protocol: chat, superchat' + sLineBreak;
-
   str := str + 'Sec-WebSocket-Version: 13' + sLineBreak;
   FSocket.BeginSend(str + sLineBreak, DoOnTcpNativeEndSendHandshakeData);
-
 end;
 
 end.

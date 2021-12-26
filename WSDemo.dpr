@@ -1,4 +1,4 @@
-program Project2;
+﻿program WSDemo;
 
 {$APPTYPE CONSOLE}
 {$R *.res}
@@ -15,6 +15,10 @@ var
 begin
   lSocket := TWebSocket.Create('ws://ws.ifelse.io:80');
   try
+    lSocket.OnOpenCallback := procedure
+      begin
+        Writeln('Соединение установлено.');
+      end;
     lSocket.Connect;
   finally
     Readln;
