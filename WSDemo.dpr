@@ -15,8 +15,12 @@ procedure test;
 var
   lSocket: TWebSocket;
 begin
-  lSocket := TWebSocket.Create('ws://ws.ifelse.io:80');
+  lSocket := TWebSocket.Create('ws://websocketstest.com/service');
   try
+    lSocket.OnErrorCallback := procedure(AError: TWebSocketError)
+      begin
+        Writeln(AError.ToString);
+      end;
     lSocket.OnOpenCallback := procedure
       begin
         Writeln('Соединение установлено.');

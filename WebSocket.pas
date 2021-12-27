@@ -17,6 +17,7 @@ type
     FSocket: TSocket;
     FOnOpenCallback: TProc;
     FOnMessageCallback: TProc<TwsMessage>;
+    FOnErrorCallback: TProc<TWebSocketError>;
   protected
 {$REGION 'Connect'}
     procedure DoOnTcpNativeConnected(const ASyncResult: IAsyncResult);
@@ -35,12 +36,14 @@ type
     procedure DoOnMessageCallback(AMsg: TwsMessage);
     procedure DoOnFrame(AFrame: TwsFrame);
 {$ENDREGION}
+    procedure DoOnError(AError: TWebSocketError);
   public
     procedure Connect;
     constructor Create(const AUrl: string);
     destructor Destroy; override;
     property OnOpenCallback: TProc read FOnOpenCallback write FOnOpenCallback;
     property OnMessageCallback: TProc<TwsMessage> read FOnMessageCallback write FOnMessageCallback;
+    property OnErrorCallback: TProc<TWebSocketError> read FOnErrorCallback write FOnErrorCallback;
   end;
 
 implementation
@@ -120,6 +123,12 @@ begin
   TwsTools.Log('EndSend');
   Writeln(FSocket.Handle);
   FSocket.BeginReceive(DoOnTcpNativeEndReceiveSendHandshake, []);
+end;
+
+procedure TWebSocket.DoOnError(AError: TWebSocketError);
+begin
+  if Assigned(OnErrorCallback) then
+    OnErrorCallback(AError);
 end;
 
 procedure TWebSocket.DoOnFrame(AFrame: TwsFrame);
