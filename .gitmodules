@@ -1,0 +1,3 @@
+[submodule "DelphiConsole"]
+	path = DelphiConsole
+	url = https://github.com/JensBorrisholt/DelphiConsole.git
