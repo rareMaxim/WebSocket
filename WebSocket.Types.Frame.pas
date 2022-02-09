@@ -59,6 +59,7 @@ type
     FPayload: TBytes;
     FFrameSize: Integer;
   protected
+    FIsValidFrame: Boolean;
     class function DecodeFrame(const iData: TBytes; var AFrame: TwsFrame): Boolean;
 
   public
@@ -75,6 +76,7 @@ type
     property PayloadLength: Integer read FPayloadLength write FPayloadLength;
     property MaskingKey: TBytes read FMaskingKey write FMaskingKey;
     property Payload: TBytes read FPayload write FPayload;
+    function IsValid: Boolean;
   end;
 
 implementation
@@ -87,7 +89,7 @@ uses
 
 constructor TwsFrame.Create(ARawBytes: TBytes);
 begin
-  DecodeFrame(ARawBytes, self);
+  FIsValidFrame := DecodeFrame(ARawBytes, self);
 end;
 
 class function TwsFrame.DecodeFrame(const iData: TBytes; var AFrame: TwsFrame): Boolean;
@@ -112,10 +114,6 @@ begin
   // Mask
   var
   Mask := (iData[1] and $80) shr 7 > 0;
-
-  // PayloadLen
-  var
-    PayloadLen: UInt64;
   var
     PayloadLenRaw: Int64Rec;
   var
@@ -128,7 +126,7 @@ begin
   Index := 2;
 
   if Len < $7E then
-    PayloadLen := Len
+    AFrame.PayloadLength := Len
   else
   begin
     var
@@ -145,13 +143,13 @@ begin
     for i := 0 to PayloadLenCount - 1 do
       PayloadLenRaw.Bytes[i] := iData[DataIndex - i];
 
-    PayloadLen := UInt64(PayloadLenRaw);
+    AFrame.PayloadLength := UInt64(PayloadLenRaw);
 
     Inc(Index, PayloadLenCount);
     Inc(Size, PayloadLenCount);
   end;
 
-  AFrame.FFrameSize := Integer(Size + UInt32(Ord(Mask) * 4) + PayloadLen);
+  AFrame.FFrameSize := Integer(Size + UInt32(Ord(Mask) * 4) + AFrame.PayloadLength);
 
   if DataLen < AFrame.FFrameSize then
     Exit(AFrame.Opcode in [TwsOpcode.Close, TwsOpcode.Ping, TwsOpcode.Pong]);
@@ -165,13 +163,12 @@ begin
   end;
 
   // Payload Data
-  if PayloadLen > 0 then // 10.3 Rio's bug. PayloadLen = 0 でも for に入る
+  if AFrame.PayloadLength > 0 then // 10.3 Rio's bug. PayloadLen = 0 でも for に入る
   begin
-    SetLength(AFrame.FPayload, PayloadLen);
-    for i := 0 to PayloadLen - 1 do
+    SetLength(AFrame.FPayload, AFrame.PayloadLength);
+    for i := 0 to AFrame.PayloadLength - 1 do
       AFrame.Payload[i] := iData[Index + i] xor MaskingKyeArray[i mod 4];
   end;
-
   Result := True;
 end;
 
@@ -245,6 +242,11 @@ begin
     SetBuff(Ord(iData[i]) xor MaskingKyeArray[i mod 4]);
 end;
 
+function TwsFrame.IsValid: Boolean;
+begin
+  Result := FIsValidFrame;
+end;
+
 class function TwsFrame.Print(AFrame: TwsFrame): string;
 const
   OUT_FORMAT = sLineBreak + //
@@ -286,7 +288,7 @@ function TwsFrame.ToText(const AForge: Boolean = True): string;
 begin
   Result := '';
   try
-    Result := TEncoding.UTF8.GetString(FPayload{, 0, 100});
+    Result := TEncoding.UTF8.GetString(FPayload);
   except
     on E: Exception do
       Result := '';

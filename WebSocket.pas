@@ -13,6 +13,26 @@ uses
 
 type
   TWebSocket = class
+  public const
+    CLOSE_CODE_NORMALY = 1000;
+    CLOSE_CODE_DISAPPEARED = 1001;
+    CLOSE_CODE_PROTOCOL_ERROR = 1002;
+    CLOSE_CODE_NOT_SUPPORTED = 1003;
+    CLOSE_CODE_REGISTED = 1004;
+    CLOSE_CODE_STATUS_NOT_RECEIVED = 1005;
+    CLOSE_CODE_ILLEGAL_CLOSURE = 1006;
+    CLOSE_CODE_ILLEGAL_PAYLOAD_DATA = 1007;
+    CLOSE_CODE_POLICY_ERROR = 1008;
+    CLOSE_CODE_HUGE_MESSAGE = 1009;
+    CLOSE_CODE_REQUIRED_EXTENSIONS = 1010;
+    CLOSE_CODE_INTERNAL_SERVER_ERROR = 1011;
+    CLOSE_CODE_TLS_HANDSHAKE_FALED = 1015;
+
+    ERR_CODE_CONNECTION = 1;
+    ERR_CODE_HANDSHAKE_TIMEOUT = 2;
+    ERR_CODE_INVALID_RESPONCE = 3;
+    ERR_CODE_HANDSHAKE = 4;
+    ERR_CODE_SEND = 5;
   private
     FUri: TURI;
     FSecuredKey: string;
@@ -21,17 +41,20 @@ type
     FOnTextCallback: TProc<string>;
     FOnErrorCallback: TProc<TWebSocketError>;
     FOnLogCallback: TProc<TLogMessage>;
+    FFrameBuffer: TBytes;
   protected
+    procedure CloseImmidiate;
+{$REGION 'Log'}
     procedure DoLog(ALogMessage: TLogMessage); overload;
     procedure DoLog(const ATag, AMessage: string); overload;
     procedure DoLog(const ATag, AFormatMessage: string; const Args: array of const); overload;
+{$ENDREGION}
 {$REGION 'Connect'}
     procedure DoOnTcpNativeConnected(const ASyncResult: IAsyncResult);
     procedure DoOnOpenCallback;
 {$ENDREGION}
 {$REGION 'Handshake'}
     procedure SendHandshake;
-    procedure EndSendHandshake(const ASyncResult: IAsyncResult);
     procedure DoOnTcpNativeEndSendHandshakeData(const ASyncResult: IAsyncResult);
     procedure DoOnTcpNativeEndReceiveSendHandshake(const ASyncResult: IAsyncResult);
     procedure DoCheckHeaderAnswer(const AHeaderFromServer: string);
@@ -74,7 +97,12 @@ uses
 
 procedure TWebSocket.Close;
 begin
+  CloseImmidiate;
+end;
 
+procedure TWebSocket.CloseImmidiate;
+begin
+  SendOpCode(TwsOpCode.Close, CLOSE_CODE_NORMALY);
 end;
 
 procedure TWebSocket.Connect;
@@ -136,8 +164,15 @@ var
 begin
   DoLog('network', 'DoOnTcpNativeEndReceiveFrameData (FSocket.Handle = %d)', [FSocket.Handle]);
   lResult := FSocket.EndReceiveBytes(ASyncResult);
-  lFrame := TwsFrame.Create(lResult);
+  FFrameBuffer := FFrameBuffer + lResult;
+  lFrame := TwsFrame.Create(FFrameBuffer);
   try
+    if not lFrame.IsValid then
+      Exit;
+    var
+    Len := Length(FFrameBuffer) - lFrame.PayloadLength;
+    Move(FFrameBuffer[lFrame.PayloadLength], FFrameBuffer[0], Len);
+    SetLength(FFrameBuffer, Len);
     DoOnFrame(lFrame);
     DoOnTcpNativeBeginReceiveFrameData;
   finally
@@ -153,6 +188,7 @@ begin
   DoLog('network', 'DoOnTcpNativeEndReceiveSendHandshake (FSocket.Handle = %d)', [FSocket.Handle]);
   lResult := FSocket.EndReceiveBytes(ASyncResult);
   lStr := TEncoding.Default.GetString(lResult);
+  DoLog('handshake', lStr);
   DoCheckHeaderAnswer(lStr);
   DoOnTcpNativeBeginReceiveFrameData;
 end;
@@ -166,7 +202,6 @@ procedure TWebSocket.DoOnTcpNativeEndSendHandshakeData(const ASyncResult: IAsync
 begin
   DoLog('network', 'DoOnTcpNativeEndSendHandshakeData (FSocket.Handle = %d)', [FSocket.Handle]);
   FSocket.EndSend(ASyncResult);
-  DoLog('network', 'DoOnTcpNativeEndSendHandshakeData (EndSend)');
   FSocket.BeginReceive(DoOnTcpNativeEndReceiveSendHandshake, []);
 end;
 
@@ -177,7 +212,6 @@ begin
 end;
 
 procedure TWebSocket.DoOnFrame(AFrame: TwsFrame);
-
 begin
   DoLog('network', 'DoOnFrame (%s)', [TwsFrame.Print(AFrame)]);
   case AFrame.Opcode of
@@ -195,7 +229,6 @@ begin
     TwsOpCode.Ping:
       SendOpCode(TwsOpCode.Pong);
   end;
-
 end;
 
 procedure TWebSocket.DoOnTextCallback(AMsg: string);
@@ -213,21 +246,13 @@ end;
 procedure TWebSocket.DoOnTcpNativeBeginReceiveFrameData;
 begin
   DoLog('network', 'DoOnTcpNativeBeginReceiveFrameData (FSocket.Handle = %d)', [FSocket.Handle]);
-  FSocket.BeginReceive(DoOnTcpNativeEndReceiveFrameData, [])
+  FSocket.BeginReceive(DoOnTcpNativeEndReceiveFrameData, -1, [])
 end;
 
 procedure TWebSocket.DoOnTcpNativeConnected(const ASyncResult: IAsyncResult);
 begin
   DoLog('network', 'DoOnTcpNativeConnected (FSocket.Handle = %d)', [FSocket.Handle]);
   SendHandshake;
-end;
-
-procedure TWebSocket.EndSendHandshake(const ASyncResult: IAsyncResult);
-var
-  lResp: string;
-begin
-  DoLog('network', 'EndSendHandshake (FSocket.Handle = %d)', [FSocket.Handle]);
-  lResp := FSocket.EndReceiveString(ASyncResult);
 end;
 
 procedure TWebSocket.Send(const AText: string);

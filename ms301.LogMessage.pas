@@ -29,7 +29,7 @@ uses
 
 class function TLogMessage.Create(const ATag, AMessage: string): TLogMessage;
 begin
-  Result.FTimeFormat := 'dd/mm/yy hh:mm:ss';
+  Result.FTimeFormat := 'yyyy/mm/dd hh:nn:ss:zz';
   Result.FMessageFormat := '$Time [$Tag] $Message';
   Result.FMessage := AMessage;
   Result.FTag := ATag;
