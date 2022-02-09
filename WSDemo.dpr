@@ -8,27 +8,47 @@ uses
   WebSocket in 'WebSocket.pas',
   WebSocket.Types.Frame in 'WebSocket.Types.Frame.pas',
   WebSocket.Tools in 'WebSocket.Tools.pas',
-  WebSocket.Types.Message in 'WebSocket.Types.Message.pas',
-  WebSocket.Types in 'WebSocket.Types.pas';
+  WebSocket.Types in 'WebSocket.Types.pas',
+  ms301.LogMessage in 'ms301.LogMessage.pas',
+  System.Console in 'DelphiConsole\Console\System.Console.pas';
 
 procedure test;
 var
   lSocket: TWebSocket;
 begin
-  lSocket := TWebSocket.Create('ws://websocketstest.com/service');
+  lSocket := TWebSocket.Create('ws://vnc.interpay.com.ua:22004');
   try
     lSocket.OnErrorCallback := procedure(AError: TWebSocketError)
       begin
-        Writeln(AError.ToString);
+        Console.ForegroundColor := TConsoleColor.Red;
+        try
+          Console.WriteLine(AError.ToString);
+        finally
+          Console.ResetColor;
+        end;
+      end;
+    lSocket.OnLogCallback := procedure(ALog: TLogMessage)
+      begin
+        Console.ForegroundColor := TConsoleColor.Yellow;
+        try
+          Console.WriteLine(ALog.ToString);
+        finally
+          Console.ResetColor;
+        end;
+
       end;
     lSocket.OnOpenCallback := procedure
+      var
+        LCmd: string;
       begin
-        Writeln('Соединение установлено.');
+        Console.WriteLine('Соединение установлено.');
+        LCmd := 'show_equery';
+        lSocket.Send('<?xml version="1.0" encoding="UTF-8"?>' + sLineBreak + '<request_type><row request_type="' + LCmd
+          + '" terminalid="T110102"/></request_type>');
       end;
-    lSocket.OnMessageCallback := procedure(AMsg: TwsMessage)
+    lSocket.OnTextCallback := procedure(AMsg: string)
       begin
-        if AMsg.IsText then
-          Writeln(AMsg.Text);
+        Console.WriteLine(AMsg);
       end;
     lSocket.Connect;
   finally
